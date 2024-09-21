@@ -1,0 +1,53 @@
+{% if poetry_version %}
+FROM python:{{ python_version }}-slim
+
+WORKDIR /app
+
+COPY ./ /app
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y \
+        pkg-config \
+        default-mysql-client \
+        default-libmysqlclient-dev \
+        build-essential \
+        libpq-dev && \
+    apt-get clean
+
+# Environment Variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    # Poetry:
+    POETRY_VIRTUALENVS_IN_PROJECT=false \
+    POETRY_NO_INTERACTION=1 \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_VERSION={{ poetry_version }}
+
+# Install Poetry
+RUN pip install poetry=="$POETRY_VERSION"
+
+# Install dependencies
+RUN poetry install --no-root --no-interaction --no-ansi
+
+RUN chmod +x entrypoint.sh
+{% else %}
+FROM python:{{ python_version }}-slim
+
+COPY . /app
+
+WORKDIR /app
+{% if db == 'mysql' %}
+RUN apt-get update && \
+    apt-get install -y \
+        pkg-config \
+        default-mysql-client \
+        default-libmysqlclient-dev \
+        build-essential \
+        libpq-dev && \
+    apt-get clean
+{% endif %}
+RUN pip install -r requirements.txt
+
+ENTRYPOINT [ "sh", "entrypoint.sh" ]
+{% endif %}
